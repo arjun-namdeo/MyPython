@@ -5,6 +5,10 @@
 Constants for the package
 """
 import os
+from logIO import get_logger
+
+logger = get_logger(__name__)
+
 
 # Make sure to have following variables set in your env before running any of my code
 PIPE_SOURCE_DIR = os.getenv("PIPE_SOURCE", None)
@@ -14,7 +18,10 @@ PIPE_TESTING_DIR = os.getenv("PIPE_TESTING", None)
 if not all([PIPE_SOURCE_DIR, PIPE_BUILDS_DIR, PIPE_TESTING_DIR]):
     # Remember you need to have above 3 paths in your global env variable
     # if you want to access any of my codebase.
-    raise IOError("PipeSource, PipeBuilds and PipeTesting paths needs to be defined at your system.!")
+    msg = "PipeSource, PipeBuilds and PipeTesting paths needs to be defined at your system.!"
+    logger.critical(msg)
+    raise IOError(msg)
+
 
 PY_SOURCE_DIR = os.path.join(PIPE_SOURCE_DIR, "python")
 PY_BUILDS_DIR = os.path.join(PIPE_BUILDS_DIR, "python")
@@ -29,7 +36,9 @@ requirements_file = "requirements.yaml"
 
 def _create_directory(dir_path):
     if not os.path.exists(dir_path):
+        logger.debug("Creating directory: '{0}'".format(dir_path))
         os.makedirs(dir_path)
 
 
 map(_create_directory, [PY_BUILDS_DIR, PY_SOURCE_DIR, PY_TESTING_DIR, BIN_BUILDS_DIR, BIN_TESTING_DIR])
+

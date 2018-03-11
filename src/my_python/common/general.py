@@ -6,6 +6,9 @@ General module with common functional procedures
 """
 import os
 from my_python import constants
+from logIO import get_logger
+
+logger = get_logger(__name__)
 
 
 class PyProject(object):
@@ -37,6 +40,7 @@ class PyProject(object):
         req_file = os.path.join(self.root_path, constants.requirements_file)
         if os.path.isfile(req_file):
             return req_file
+        logger.debug("Cannot find requirements file for '{0}' project.".format(self.name))
         return None
 
     def get_package_setup_file(self):
@@ -48,6 +52,7 @@ class PyProject(object):
         setup_file = os.path.join(self.root_path, constants.package_setup_file)
         if os.path.isfile(setup_file):
             return setup_file
+        logger.error("Cannot find package_setup file for '{0}' project.".format(self.name))
         return None
 
     def setup_project(self):
@@ -104,8 +109,9 @@ def get_project_root_from_path(source_path):
 
     root_path = _get_root_directory(src_path=source_path)
     if root_path is None:
-        # given path is not any package.
+        logger.warning("Given path is not a valid project.")
         return None
 
     root_name = os.path.basename(root_path)
     return PyProject(name=root_name, root_path=root_path)
+

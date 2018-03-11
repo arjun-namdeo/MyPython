@@ -8,6 +8,10 @@ import os
 import datetime
 from functools import wraps
 
+from logIO import get_logger
+
+logger = get_logger(__name__)
+
 
 class ContextDecorator(object):
     """
@@ -41,7 +45,6 @@ class TimeIt(ContextDecorator):
 
             with TimeIt(label="running_something"):
                 do_your_stuff()
-
             or
 
             @TimeIt(label="running_something")
@@ -55,7 +58,8 @@ class TimeIt(ContextDecorator):
 
     def __exit__(self, exc_type, exc_value, exc_traceback):
         end_time = datetime.datetime.now()
-        print "INFO : Process '{0}' completed in {1} sec".format(self.label, end_time - self.start_time)
+        string = "INFO : Process '{0}' completed in {1} sec".format(self.label, end_time - self.start_time)
+        logger.info(string)
 
 
 class BusyCursor(ContextDecorator):
@@ -67,7 +71,6 @@ class BusyCursor(ContextDecorator):
 
                 with BusyCursor():
                     do_your_stuff()
-
                 or
 
                 @BusyCursor()
@@ -94,13 +97,11 @@ class RunFromPath(ContextDecorator):
 
             with RunFromPath(path="/run/from/this/path"):
                 do_your_stuff()
-
             or
 
             @RunFromPath(path="/run/from/this/path")
             def do_your_stuff()
                 pass
-
     """
     def __enter__(self):
         self.init_work_directory = os.getcwd()
@@ -115,4 +116,46 @@ class RunFromPath(ContextDecorator):
     def __exit__(self, exc_type, exc_value, exc_traceback):
         if self._path_changed:
             os.chdir(self.init_work_directory)
+
+
+class ClassPropertyDescriptor(object):
+    """
+    Python Class Property descriptor
+    """
+    def __init__(self, method_get, method_set=None):
+        self.method_get = method_get
+        self.method_set = method_set
+
+    def __get__(self, obj, m_class=None):
+        """
+        Internal getter
+        """
+        if m_class is None:
+            m_class = type(obj)
+        return self.method_get.__get__(obj, m_class)()
+
+    def __set__(self, obj, value):
+        """
+        Internal setter
+        """
+        if not self.method_set:
+            raise AttributeError("Can't set attribute")
+        type_ = type(obj)
+        return self.method_set.__get__(obj, type_)(value)
+
+    def setter(self, method):
+        if not isinstance(method, (classmethod, staticmethod)):
+            method = classmethod(method)
+        self.method_set = method
+        return self
+
+
+def classproperty(func):
+    """
+    class property decorator for python use cases
+    """
+    if not isinstance(func, (classmethod, staticmethod)):
+        func = classmethod(func)
+
+    return ClassPropertyDescriptor(func)
 
