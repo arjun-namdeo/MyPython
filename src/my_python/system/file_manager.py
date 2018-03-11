@@ -7,10 +7,14 @@ Common methods related to file/directory and system
 import os
 import ctypes
 import platform
+import platform
 import shutil
 import traceback
 
+from logIO import get_logger
+
 __CSL = None
+logger = get_logger(__name__)
 
 
 def windows_symlink(source, link_name):
@@ -36,6 +40,67 @@ def windows_symlink(source, link_name):
 
     if __CSL(link_name, source, flags) == 0:
         raise ctypes.WinError()
+
+
+def read_csv(file_path, delimiter=',', quote_char='|'):
+    """
+    CSV File reader, This is a simple wrapper on top of python csv module which
+    """
+    if not validate_file_path(file_path=file_path):
+        logger.warning("Invalid file-path given: '{0}'".format(file_path))
+        return
+
+    # we don't want to make this module too heavy with extra imports.
+    # Better to import module when you need it.
+    import csv
+
+    with open(file_path, "r") as csv_read:
+        reader = csv.reader(csv_read, delimiter=delimiter, quotechar=quote_char)
+        for row in reader:
+            yield row
+
+
+def validate_file_path(file_path, file_extension=None, check_existence=False):
+    """
+    common method for validating a file_path
+
+    @:param `file_path`         `str`   : Provide file path which you want to validate
+    @:param `file_extension`    `str`   : Set this If you want to validate a specific file type. like .csv or .json
+    @:param `check_existence`   `bool`  : Set this True/False if you want to check physical existence of file
+
+    """
+    if not file_path:
+        logger.warning('No File Path received. Please provide correct filePath')
+        return False
+
+    if file_extension:
+        if not str(file_path).endswith(str(file_extension)):
+            logger.warning('Invalid File Type! Please provide a filePath with "{0}" file format.'.format(file_extension))
+            return False
+
+    if check_existence:
+        if not os.path.isfile(file_path):
+            logger.warning("File NOT Found. File %s does not found in location." % file_path)
+            return False
+
+    return True
+
+
+def view_file(file_path=None):
+    """
+    Open up the file path in default browser.
+    """
+    if not validate_file_path(file_path=file_path, check_existence=True):
+        return
+
+    # we don't want to make this module too heavy with extra imports.
+    # Better to import module when you need it.
+    import webbrowser
+
+    try:
+        webbrowser.open("file://" + file_path)
+    except Exception, e:
+        logger.warning("Cannot start file because {0}.  File Path : {1}".format(e, file_path))
 
 
 def is_windows_machine():
@@ -71,17 +136,17 @@ def create_symlinks(source, destination, override=False):
         if override:
             # user has asked to override the previous files.
             try:
-                # shutil.rmtree(destination)
                 os.rmdir(destination)
             except Exception as e:
                 traceback.print_exc()
-                print "Error occured during the deletion of '{0}' as '{1}'".format(destination, e)
+                logger.debug(traceback.format_exc())
+                logger.error("Error occured during the deletion of '{0}' as '{1}'".format(destination, e))
                 return
         else:
-            print "Desination files already exists. Cannot continue. Please use override or force arguments"
+            logger.warning("Desination files already exists. Cannot continue. Please use override or force arguments")
             return False
 
-    print "Creating Links:\t\t {0} \t ==>> \t {1}".format(source, destination)
+    logger.info("Creating Links:\t\t {0} \t ==>> \t {1}".format(source, destination))
     if is_windows_machine():
         # windows have a completely different concept for sym-linking. I know, It's crazy
         return windows_symlink(source=source, link_name=destination)
