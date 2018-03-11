@@ -152,3 +152,57 @@ def create_symlinks(source, destination, override=False):
         return windows_symlink(source=source, link_name=destination)
 
     return os.symlink(source=source, link_name=destination)
+
+
+def remove_file(file_path, force=True):
+    """
+    Remove single file, Use this method only for 1 file
+    """
+    if os.path.isfile(file_path):
+        os.remove(file_path)
+
+
+def remove_directory(directory_path, recursive=True, force=True):
+    """
+    Remove an entire directory
+    """
+    if not os.path.isdir(directory_path):
+        return
+
+    def _run_remove(method, _dir_path, method_name):
+        try:
+            method(_dir_path)
+        except Exception, e:
+            logger.debug(traceback.format_exc())
+            logger.debug("Cannot delete '{0}' with {1} as ERROR: {2}".format(_dir_path, method_name, e))
+
+        return bool(not os.path.isdir(directory_path))
+
+    if not os.listdir(directory_path):
+        success = _run_remove(method=os.rmdir, _dir_path=directory_path, method_name="os.rmdir")
+        if success:
+            return success
+
+    success = _run_remove(method=shutil.rmtree, _dir_path=directory_path, method_name="shutil.rmtree")
+    if success:
+        return success
+
+    if is_windows_machine():
+        command = 'rd /s /q "{DIR}"'.format(DIR=directory_path)
+    else:
+        command = 'rm -rf "{DIR}"'.format(DIR=directory_path)
+
+    os.system(command)
+    return bool(not os.path.isdir(directory_path))
+
+
+def remove_from_disk(path, recursive=True, force=True):
+    if os.path.isdir(path):
+        return remove_directory(directory_path=path, recursive=recursive, force=force)
+    return remove_file(file_path=path, force=force)
+
+
+if __name__ == "__main__":
+    import logging
+    logger.setLevel(logging.DEBUG)
+    remove_directory(directory_path="C:\\temp\\my_python")
