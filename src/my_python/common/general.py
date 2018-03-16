@@ -115,3 +115,182 @@ def get_project_root_from_path(source_path):
     root_name = os.path.basename(root_path)
     return PyProject(name=root_name, root_path=root_path)
 
+
+_fast_key_list = {'_asset', '_entity', '_seq', '_show', '_shot', '_step', '_task', '_sg_task', '_task_context',
+                  'asset', 'asset_type', 'entity_path', 'in_asset', 'in_shot', 'in_seq', 'location', 'seq', 'shot',
+                  'show', 'show_follows_tasks', 'step', 'task', 'task_path', 'raw_task_path'}
+
+
+class ContextDict(dict):
+    '''A special dictionary that knows how to self-populate certain pipeline elements on demand.'''
+
+    def __init__(self, task_context):
+        '''All the information that this object looks up is based on either the environment. However,
+        note that many of the pipeline items are based on the BFX_ENTITY_ID environment variable. If
+        you want a context that is not based on that, just set the given value in the dictionary before
+        any lookups happen.
+
+        Note: it returns None whenever it cannot generate the required item. It doesn't raise a KeyError
+        exception unless the item is not an auto-generate item.'''
+        super(ContextDict, self).__init__()
+
+        self['_entity'] = task_context.entity
+        self['_task_context'] = task_context
+        self['task_path'] = task_context.task_path
+        self['raw_task_path'] = task_context.raw_task_path
+
+    def __getitem__(self, item):
+        # Override this so that C[X] can generate the required items.
+        if item in _fast_key_list or item.startswith('$'):
+            if not super(ContextDict, self).__contains__(item):
+                self[item] = self._generate_item(item)
+        return super(ContextDict, self).__getitem__(item)
+
+    def __contains__(self, item):
+        # Override this so that X in C returns True, even if it hasn't been generated yet.
+        if item in _fast_key_list or item.startswith('$'):
+            return True
+        super(ContextDict, self).__contains__(item)
+
+    def get_presets(self):
+        return self['_task_context'].get_presets(context=self, name='presets')
+
+    def pre_cache_items(self):
+        '''
+        Sometimes the lazy evaluation of this class is a problem. In such cases, we need to call this
+        method to pre-cache the item evaluations for all the values. For example, if you're trying
+        to use this as an argument to a format call.
+        '''
+
+        for item in _fast_key_list:
+            self.__getitem__(item)
+        for item in os.environ:
+            self.__getitem__('$'+item)
+
+    def _generate_item(self, item):
+        """
+        Hidden function that is called only when someone has requested an item that we know we
+        can auto-generate and that hasn't already been computed. It returns the generated item.
+        """
+        if item.startswith('$'):
+            try:
+                return os.environ[item[1:]]
+            except KeyError:
+                return None
+
+        if item == '_entity':
+            id = self['$BFX_ENTITY_ID']
+            if id is None:
+                return None
+
+            return id
+
+        if item == '_show':
+            entity = self['_entity']
+            if entity is None:
+                return None
+            return entity.get_root()
+
+        if item == '_sg_task':
+            task_context = self['_task_context']
+            return task_context.get_sg_task()
+
+        if item == '_task':
+            if not self['show_follows_tasks']:
+                return None
+            entity = self['_entity']
+            if entity is None:
+                return None
+            if entity.shotgun_model.model_class_name == 'Task':
+                return entity
+            return None
+
+        if item == '_step':
+            assert self['_sg_task']   # TODO add support for DT shows
+            task = self['_sg_task']
+            if task is None:
+                return None
+            return task.step
+
+        if item == 'show':
+            entity = self['_show']
+            if entity is None:
+                return None
+            return entity.name
+
+        if item == 'task':
+            sg_task = self['_sg_task']
+            if sg_task is None:
+                return None
+            return sg_task.name
+
+        if item == 'step':
+            step = self['_step']
+            if step is None:
+                return None
+            return step.short_name.lower()
+
+        if item == '_asset':
+            entity = self['_entity']
+            while entity is not None:
+                sg_entity = entity.shotgun_model
+                if sg_entity and sg_entity.model_class_name == 'Asset':
+                    return entity
+                entity = entity.parent if entity.parent_id else None
+            return None
+
+        if item == '_shot':
+            entity = self['_entity']
+            while entity is not None:
+                sg_entity = entity.shotgun_model
+                if sg_entity and sg_entity.model_class_name == 'Shot':
+                    return entity
+                entity = entity.parent if entity.parent_id else None
+            return None
+
+        if item == '_seq':
+            entity = self['_entity']
+            while entity is not None:
+                sg_entity = entity.shotgun_model
+                if sg_entity and sg_entity.model_class_name == 'Sequence':
+                    return entity
+                entity = entity.parent if entity.parent_id else None
+            return None
+
+        if item == 'asset_type':
+            asset = self['_asset']
+            if asset is None:
+                return None
+            else:
+                return asset.shotgun_model.type_short
+
+        if item == 'shot':
+            shot = self['_shot']
+            if shot is None:
+                return None
+            return shot.name
+
+        if item == 'seq':
+            seq = self['_seq']
+            if seq is None:
+                return None
+            return seq.name
+
+        if item == 'in_seq':
+            seq = self['_seq']
+            return seq is not None
+
+        if item == 'in_shot':
+            shot = self['_shot']
+            return shot is not None
+
+        if item == 'asset':
+            asset = self['_asset']
+            if asset is None:
+                return None
+            return asset.name
+
+        if item == 'entity_path':
+            entity = self['_entity']
+            return entity.get_full_name()
+
