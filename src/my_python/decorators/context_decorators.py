@@ -6,7 +6,10 @@ Common decorators and Context Managers
 """
 import os
 import datetime
+import inspect
+import collections
 from functools import wraps
+from abc import abstractmethod
 
 from logIO import get_logger
 
@@ -78,13 +81,30 @@ class BusyCursor(ContextDecorator):
                     pass
     """
     def __enter__(self):
-        from PyQt4 import QtWidgets, QtCore
+        from PyQt5 import QtWidgets, QtCore
         QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.WaitCursor)
         return self
 
     def __exit__(self, exc_type, exc_value, exc_traceback):
-        from PyQt4 import QtWidgets
+        from PyQt5 import QtWidgets
         QtWidgets.QApplication.restoreOverrideCursor()
+
+
+def cached_property(method):
+    """
+    A cached_property for caching the property data
+    """
+    @wraps(method)
+    def get(self):
+        try:
+            return self._cache[method]
+        except AttributeError:
+            self._cache = {}
+        except KeyError:
+            pass
+        result = self._cache[method] = method(self)
+        return result
+    return property(get)
 
 
 class RunFromPath(ContextDecorator):
@@ -158,4 +178,50 @@ def classproperty(func):
         func = classmethod(func)
 
     return ClassPropertyDescriptor(func)
+
+
+class DictMapper(collections.MutableMapping):
+    """
+    Generic Dict mapper decorator
+    """
+    __slots__ = ()
+
+    @abstractmethod
+    def __contains__(self, key):  # pragma: nocover
+        return False
+
+    @abstractmethod
+    def __getitem__(self, key):  # pragma: nocover
+        if hasattr(self.__class__, '__missing__'):
+            return self.__class__.__missing__(self, key)
+        else:
+            raise KeyError(key)
+
+    def get(self, key, default=None):
+        if key in self:
+            return self[key]
+        else:
+            return default
+
+    __marker = object()
+
+    def pop(self, key, default=__marker):
+        if key in self:
+            value = self[key]
+            del self[key]
+        elif default is self.__marker:
+            raise KeyError(key)
+        else:
+            value = default
+        return value
+
+    def setdefault(self, key, default=None):
+        if key in self:
+            value = self[key]
+        else:
+            self[key] = value = default
+        return value
+
+
+DictMapper.register(dict)
 
