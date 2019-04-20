@@ -1,0 +1,3 @@
+#### required packages #### 
+coloredlogs==10.0
+-e git+https://github.com/mottosso/Qt.py#egg=Qt.py-1.1.0

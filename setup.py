@@ -14,7 +14,7 @@ def get_long_description():
     if not description_files:
         return " "
 
-    with open(description_files[0], encoding='utf-8') as f:
+    with open(description_files[0], encoding="utf-8") as f:
         long_description = f.read()
       
     return long_description
@@ -36,6 +36,51 @@ def get_script_files():
                 # TODO: Add logic to check file permissions as well for exe files
 
     return script_files
+
+
+def get_dependent_packages():
+    """
+    check the requirement.txt file on the root directory 
+    and parse the packages and dependency links if any
+    """
+    packages    = list()
+    links       = list()
+
+    req_files = [f for f in os.listdir(PKG_DIR_PATH) if "requirements.txt" in str(f).lower()]
+    if not req_files:
+        return [packages, links]
+    
+    with open(os.path.join(PKG_DIR_PATH, req_files[0])) as rf:
+        requirements = rf.read().splitlines()
+    
+    if requirements:
+        for req in requirements:
+            if not req:
+                # probably an empty line
+                continue
+
+            if str(req).startswith("#"):
+                # comment line
+                continue
+            
+            if "git+" in str(req):
+                # it's direct dependency for a git project
+                # Qt.py-1.1.0
+
+                pkg_info = str(req).split("#egg=")[-1]
+                pkg_name, pkg_version = str(pkg_info).split("-")
+
+                packages.append("{}=={}".format(pkg_name, pkg_version))
+                links.append(req)
+                continue
+            
+            packages.append(req)
+
+    return [packages, links]
+
+
+
+INSTALL_REQUIRE, DEPENDENT_LINKS = get_dependent_packages()
 
 
 setup(name              = os.path.basename(PKG_DIR_PATH),
@@ -75,12 +120,14 @@ setup(name              = os.path.basename(PKG_DIR_PATH),
           ],
       keywords          = "python handy useful",
       packages          = find_packages(exclude=["tests", "contrib", "docs"]),
-      install_requires  = [ ],
+      
+      install_requires  = INSTALL_REQUIRE,
+      dependency_links  = DEPENDENT_LINKS,
+        
       include_package_data = True,
-      dependency_links=[
-          'git+https://github.com/mottosso/Qt.py#egg=Qt.py-1.1.0'
-          ],
 
       scripts           = get_script_files(),
       zip_safe          = False,
-      url               = "https://github.com/arjun-namdeo/{}".format(os.path.basename(PKG_DIR_PATH)))
+      url               = "https://github.com/arjun-namdeo/{}".format(os.path.basename(PKG_DIR_PATH))
+    
+    )
