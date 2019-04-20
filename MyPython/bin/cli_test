@@ -1,0 +1,13 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+import os
+
+SANDBOX_DIR = os.getenv("SANDBOX_DIR", None)
+if not SANDBOX_DIR:
+    raise ValueError("Cannot find SANDBOX_DIR path in the env")
+
+# cmd = 'pip install -t "{DIR}/python/builds" -U .'.format(DIR=SANDBOX_DIR)
+cmd = "\"C:\\Program Files\\Git\\git-bash.exe\" -c \"cd_source && pwd; read\" "
+print(cmd)
+os.system(cmd)
