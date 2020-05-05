@@ -1,5 +1,4 @@
 ##### Travis setup for the package ####
-
 language: python
 python:
   - "2.7"
@@ -19,20 +18,10 @@ before_install:
   - pip install --upgrade pylint pytest pytest-pylint pytest-runner
 
 install:
-  - pip install -r ./requirements.txt
+  - pip install -r requirements.txt
 
 script: 
   - python -m pytest      # Run the tests without IPython.
-  - pip install ipython
-  - python -m pytest      # Now run the tests with IPython.
-
-  # Run type-checking, excluding files that define or use py3 features in py2.
-  - pip install pytype  
-  - if [[ $TRAVIS_PYTHON_VERSION == 2.7 ]]; then
-      pytype -x
-        tests/test_api.py;
-    else
-      pytype; fi
 
 # install: source build_tools/travis/install.sh
 # after_success: source build_tools/travis/after_success.sh

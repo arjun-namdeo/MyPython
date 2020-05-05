@@ -23,6 +23,7 @@ def verify_mount(mount_name, mount_path):
         return True
     return False
 
+
 def mount_drives(drives):
     for drive in drives:
         mount_name = get_mount_name(drive=drive)

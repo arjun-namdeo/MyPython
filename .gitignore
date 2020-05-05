@@ -9,6 +9,7 @@ __pycache__/
 # Distribution / packaging
 .eggs/
 *.egg
+*.ini
 
 # Installer logs
 pip-log.txt
